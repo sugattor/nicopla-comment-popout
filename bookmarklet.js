@@ -222,6 +222,15 @@ javascript:(function() {
       inputDiv.removeAttribute('aria-hidden');
     }
 
+    // textarea を input に置き換え（単一行で十分）
+    if (textarea) {
+      const input = popout.document.createElement('input');
+      input.type = 'text';
+      input.className = textarea.className;
+      textarea.replaceWith(input);
+    }
+    const input = clonedInput.querySelector('input');
+
     // 送信ボタンを取得して設定
     const button = clonedInput.querySelector('button');
     if (button) {
@@ -230,19 +239,29 @@ javascript:(function() {
       button.style.visibility = 'visible';
       button.style.opacity = '1';
 
-      // クリック時に元のページの textarea に値を設定して送信ボタンをクリック
-      button.addEventListener('click', () => {
+      // 元のページの textarea に値を設定して送信
+      function submitComment() {
         const originalTextarea = document.querySelector('.CommentInputArea-commentInput');
-        if (originalTextarea && textarea) {
-          originalTextarea.value = textarea.value;
+        if (originalTextarea && input && input.value) {
+          originalTextarea.value = input.value;
           originalTextarea.dispatchEvent(new Event('input', { bubbles: true }));
         }
         const originalButton = document.querySelector('.CommentInputArea-submitIcon');
         if (originalButton) {
           originalButton.click();
         }
-        if (textarea) {
-          textarea.value = '';
+        if (input) {
+          input.value = '';
+        }
+      }
+
+      button.addEventListener('click', submitComment);
+
+      // Enter キーで投稿
+      input?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          submitComment();
         }
       });
     }
