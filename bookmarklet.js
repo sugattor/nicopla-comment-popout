@@ -194,12 +194,42 @@ javascript:(function() {
           background: rgba(0,0,0,0.05);
           border-radius: 50%;
         }
+        #scroll-to-bottom-btn {
+          position: fixed;
+          bottom: 60px;
+          right: 20px;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: rgba(0,0,0,0.7);
+          color: #fff;
+          border: none;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 20px;
+          opacity: 0;
+          transform: scale(0.8);
+          transition: opacity 0.2s, transform 0.2s;
+          pointer-events: none;
+          z-index: 999;
+        }
+        #scroll-to-bottom-btn.visible {
+          opacity: 1;
+          transform: scale(1);
+          pointer-events: auto;
+        }
+        #scroll-to-bottom-btn:hover {
+          background: rgba(0,0,0,0.9);
+        }
       </style>
     </head>
     <body>
       <div id="popout-wrapper">
         <div id="comment-container"></div>
         <div id="input-container"></div>
+        <button id="scroll-to-bottom-btn" aria-label="最下部へ移動">▼</button>
       </div>
     </body>
     </html>
@@ -362,37 +392,8 @@ javascript:(function() {
     setTimeout(tryClick, 100);
   }
   
-  // コメントをコピーする関数
-  function copyComments() {
-    const comments = commentArea.querySelectorAll('.CommentDetail-wrapper');
-    comments.forEach((comment, index) => {
-      const clonedComment = comment.cloneNode(true);
-      
-      // 三点リーダーボタンにクリックハンドラーを追加
-      const menuButton = clonedComment.querySelector('.MuiIconButton-root');
-      if (menuButton) {
-        menuButton.addEventListener('click', (e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          showContextMenu(menuButton, comment);
-        });
-      }
-      
-      popoutContainer.appendChild(clonedComment);
-    });
-  }
-
-  // 元のページのコメント関連要素を非表示にする
-  hideOriginalComments();
-
-  // 最新コメントにスクロールする関数
-  function scrollToBottom() {
-    popoutContainer.scrollTo({ top: 999999, behavior: 'smooth' });
-  }
-
-  // 初期コピー＆スクロール
-  copyComments();
-  scrollToBottom();
+  // 元DOM → 複製DOM の対応表（WeakMapで自動GC）
+  const clonedByOriginal = new WeakMap();
 
   // 三点リーダーボタンのクリックハンドラーを追加する関数
   function addMenuButtonHandler(clonedComment, originalComment) {
@@ -406,16 +407,102 @@ javascript:(function() {
     }
   }
 
+  // コメントを複製してポップアウトに追加（重複防止付き）
+  function appendComment(originalComment) {
+    if (clonedByOriginal.has(originalComment)) return;
+    
+    const clonedComment = originalComment.cloneNode(true);
+    addMenuButtonHandler(clonedComment, originalComment);
+    clonedByOriginal.set(originalComment, clonedComment);
+    popoutContainer.appendChild(clonedComment);
+  }
+
+  // コメントをコピーする関数
+  function copyComments() {
+    commentArea.querySelectorAll('.CommentDetail-wrapper').forEach(appendComment);
+  }
+
+  // 元のページのコメント関連要素を非表示にする
+  hideOriginalComments();
+
+  // 最新コメントにスクロールする関数
+  // autoScrollEnabled: 自動スクロール有効フラグ（ユーザーが上にスクロールしたら無効化）
+  let autoScrollEnabled = true;
+
+  function scrollToBottom() {
+    if (autoScrollEnabled) {
+      popoutContainer.scrollTo({ top: 999999, behavior: 'smooth' });
+    }
+  }
+
+  // 最下部へ戻るボタン
+  const scrollToBottomBtn = popout.document.getElementById('scroll-to-bottom-btn');
+  const SCROLL_THRESHOLD = 80; // 最下部からこの値以上離れるとボタンを表示
+
+  function updateScrollButton() {
+    // 最下部からどれだけ離れているかを計算
+    const { scrollTop, scrollHeight, clientHeight } = popoutContainer;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    
+    if (distanceFromBottom > SCROLL_THRESHOLD) {
+      scrollToBottomBtn.classList.add('visible');
+    } else {
+      scrollToBottomBtn.classList.remove('visible');
+      // 最下部に戻ったら自動スクロールを再有効化
+      autoScrollEnabled = true;
+    }
+  }
+
+  // ボタンクリックで最下部へ
+  scrollToBottomBtn.addEventListener('click', () => {
+    popoutContainer.scrollTo({ top: 999999, behavior: 'smooth' });
+    autoScrollEnabled = true;
+    scrollToBottomBtn.classList.remove('visible');
+  });
+
+  // スクロールイベントでボタン表示/非表示を切り替え
+  popoutContainer.addEventListener('scroll', () => {
+    // ユーザーが上にスクロールしたら自動スクロールを無効化
+    const { scrollTop, scrollHeight, clientHeight } = popoutContainer;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    
+    if (distanceFromBottom > SCROLL_THRESHOLD) {
+      autoScrollEnabled = false;
+    }
+    
+    updateScrollButton();
+  }, { passive: true });
+
+  // 初期コピー＆スクロール
+  copyComments();
+  scrollToBottom();
+
   // MutationObserver で新しいコメントを検知
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
-      for (const node of mutation.addedNodes) {
-        if (node.nodeType === 1 && node.classList?.contains('CommentDetail-wrapper')) {
-          const clonedNode = node.cloneNode(true);
-          addMenuButtonHandler(clonedNode, node);
-          popoutContainer.appendChild(clonedNode);
-          scrollToBottom();
+      // 削除されたノードを処理
+      for (const node of mutation.removedNodes) {
+        if (node.nodeType !== 1) continue;
+        // 直接コメントノードが削除された場合
+        if (node.classList?.contains('CommentDetail-wrapper')) {
+          const cloned = clonedByOriginal.get(node);
+          if (cloned) cloned.remove();
         }
+        // 親ノードが削除された場合は子コメントも削除
+        node.querySelectorAll?.('.CommentDetail-wrapper').forEach(child => {
+          const cloned = clonedByOriginal.get(child);
+          if (cloned) cloned.remove();
+        });
+      }
+      
+      // 追加されたノードを処理
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType !== 1) continue;
+        const comments = node.classList?.contains('CommentDetail-wrapper')
+          ? [node]
+          : node.querySelectorAll?.('.CommentDetail-wrapper') ?? [];
+        comments.forEach(appendComment);
+        if (comments.length > 0) scrollToBottom();
       }
     }
   });
