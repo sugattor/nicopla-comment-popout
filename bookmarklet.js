@@ -52,7 +52,7 @@ javascript:(function() {
   );
 
   if (!popout) {
-    alert('ポップアップブロックが有効です。ポップアップを許可してください');
+    alert('ポップアップブロックが有効です');
     return;
   }
 
@@ -61,175 +61,74 @@ javascript:(function() {
     <!DOCTYPE html>
     <html>
     <head>
-      <title>NicoPla コメント</title>
+      <title>コメント欄</title>
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
           background: #fff; color: rgba(0,0,0,0.8);
-          overflow: hidden; height: 100vh; margin: 0; padding: 0;
+          overflow: hidden; height: 100vh;
         }
-        #popout-wrapper {
-          display: flex;
-          flex-direction: column;
-          height: 100vh;
+        #popout-wrapper { display: flex; flex-direction: column; height: 100vh; }
+        #comment-container { flex: 1; overflow-y: auto; scroll-behavior: smooth; padding: 8px 12px; }
+        .CommentDetail-wrapper { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; padding: 4px 0; }
+        .CommentDetail-content { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+        .CommentDetail-subtitle { font-size: 12px; color: rgba(22,22,25,0.6); }
+        .CommentDetail-comment { font-size: 14px; line-height: 1.5; color: rgba(0,0,0,0.8); }
+
+        /* アイコンボタン共通 */
+        .CommentDetail-wrapper .MuiIconButton-root,
+        .CommentInputArea-submitIcon,
+        #scroll-to-bottom-btn {
+          display: flex; align-items: center; justify-content: center;
+          border: none; background: transparent; cursor: pointer; padding: 0;
         }
-        #comment-container {
-          flex: 1;
-          overflow-y: auto;
-          scroll-behavior: smooth;
-          padding: 8px 12px;
-        }
-        .CommentDetail-wrapper {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 12px;
-          padding: 4px 0;
-        }
-        .CommentDetail-content {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-        .CommentDetail-subtitle {
-          font-size: 12px;
-          color: rgba(22,22,25,0.6);
-        }
-        .CommentDetail-comment {
-          font-size: 14px;
-          line-height: 1.5;
-          color: rgba(0,0,0,0.8);
-        }
-        .CommentDetail-wrapper .MuiIconButton-root {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 32px;
-          height: 32px;
-          border: none;
-          background: transparent;
-          cursor: pointer;
-          padding: 0;
-        }
-        .CommentDetail-wrapper .MuiIconButton-root:hover {
-          background: rgba(0,0,0,0.05);
-          border-radius: 50%;
-        }
+        .CommentDetail-wrapper .MuiIconButton-root,
+        .CommentInputArea-submitIcon { width: 32px; height: 32px; }
+        .CommentDetail-wrapper .MuiIconButton-root:hover,
+        .CommentInputArea-submitIcon:hover { background: rgba(0,0,0,0.05); border-radius: 50%; }
+
+        /* コンテキストメニュー */
         .comment-context-menu {
-          position: absolute;
-          background: #fff;
-          border: 1px solid #e0e0e0;
-          border-radius: 8px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-          padding: 4px 0;
-          z-index: 1000;
-          min-width: 160px;
+          position: absolute; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 4px 0; z-index: 1000; min-width: 160px;
         }
         .comment-context-menu-item {
-          padding: 8px 16px;
-          cursor: pointer;
-          font-size: 14px;
-          color: rgba(0,0,0,0.8);
-          display: block;
-          width: 100%;
-          text-align: left;
-          border: none;
-          background: transparent;
+          padding: 8px 16px; cursor: pointer; font-size: 14px; color: rgba(0,0,0,0.8);
+          display: block; width: 100%; text-align: left; border: none; background: transparent;
         }
-        .comment-context-menu-item:hover {
-          background: #f5f5f5;
-        }
-        #input-container {
-          border-top: 1px solid #e0e0e0;
-          padding: 8px 12px;
-          background: #fff;
-        }
-        .CommentInputArea-wrapper {
-          display: flex;
-          width: 100%;
-        }
-        .CommentInputArea-input {
-          display: flex;
-          flex-direction: row;
-          align-items: center;
-          gap: 8px;
-          width: 100%;
-        }
+        .comment-context-menu-item:hover { background: #f5f5f5; }
+
+        /* 入力エリア */
+        #input-container { border-top: 1px solid #e0e0e0; padding: 8px 12px; background: #fff; }
+        .CommentInputArea-wrapper,
+        .CommentInputArea-input { display: flex; width: 100%; }
+        .CommentInputArea-input { flex-direction: row; align-items: center; gap: 8px; }
         .CommentInputArea-commentInput {
-          flex: 1;
-          background: #f5f5f5;
-          color: rgba(0,0,0,0.8);
-          border: 1px solid #e0e0e0;
-          border-radius: 4px;
-          padding: 8px 12px;
-          font-size: 14px;
-          min-height: 36px;
-          resize: none;
-          font-family: inherit;
-          outline: none;
+          flex: 1; background: #f5f5f5; color: rgba(0,0,0,0.8);
+          border: 1px solid #e0e0e0; border-radius: 4px; padding: 8px 12px; font-size: 14px;
+          min-height: 36px; resize: none; font-family: inherit; outline: none;
         }
-        .CommentInputArea-commentInput:focus {
-          border-color: #1da1f2;
-          background: #fff;
-        }
-        .CommentInputArea-submitIcon {
-          display: flex !important;
-          align-items: center;
-          justify-content: center;
-          width: 32px;
-          height: 32px;
-          border: none;
-          background: transparent;
-          cursor: pointer;
-          padding: 0;
-          visibility: visible !important;
-          opacity: 1 !important;
-        }
-        .CommentInputArea-submitIcon.hidden {
-          display: flex !important;
-        }
-        .CommentInputArea-submitIcon:hover {
-          background: rgba(0,0,0,0.05);
-          border-radius: 50%;
-        }
+        .CommentInputArea-commentInput:focus { border-color: #1da1f2; background: #fff; }
+        .CommentInputArea-submitIcon { visibility: visible !important; opacity: 1 !important; }
+        .CommentInputArea-submitIcon.hidden { display: flex !important; }
+
+        /* 最下部へ戻るボタン */
         #scroll-to-bottom-btn {
-          position: fixed;
-          bottom: 60px;
-          right: 20px;
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
-          background: rgba(0,0,0,0.7);
-          color: #fff;
-          border: none;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 20px;
-          opacity: 0;
-          transform: scale(0.8);
-          transition: opacity 0.2s, transform 0.2s;
-          pointer-events: none;
-          z-index: 999;
+          position: fixed; bottom: 60px; right: 20px; width: 40px; height: 40px;
+          border-radius: 50%; background: rgba(0,0,0,0.7); color: #fff; font-size: 20px;
+          opacity: 0; transform: scale(0.8); transition: opacity 0.2s, transform 0.2s;
+          pointer-events: none; z-index: 999;
         }
-        #scroll-to-bottom-btn.visible {
-          opacity: 1;
-          transform: scale(1);
-          pointer-events: auto;
-        }
-        #scroll-to-bottom-btn:hover {
-          background: rgba(0,0,0,0.9);
-        }
+        #scroll-to-bottom-btn.visible { opacity: 1; transform: scale(1); pointer-events: auto; }
+        #scroll-to-bottom-btn:hover { background: rgba(0,0,0,0.9); }
       </style>
     </head>
     <body>
       <div id="popout-wrapper">
         <div id="comment-container"></div>
         <div id="input-container"></div>
-        <button id="scroll-to-bottom-btn" aria-label="最下部へ移動">▼</button>
+        <button id="scroll-to-bottom-btn">▼</button>
       </div>
     </body>
     </html>
@@ -272,17 +171,13 @@ javascript:(function() {
       // 元のページの textarea に値を設定して送信
       function submitComment() {
         const originalTextarea = document.querySelector('.CommentInputArea-commentInput');
-        if (originalTextarea && input && input.value) {
+        if (originalTextarea && input.value) {
           originalTextarea.value = input.value;
           originalTextarea.dispatchEvent(new Event('input', { bubbles: true }));
         }
         const originalButton = document.querySelector('.CommentInputArea-submitIcon');
-        if (originalButton) {
-          originalButton.click();
-        }
-        if (input) {
-          input.value = '';
-        }
+        if (originalButton) originalButton.click();
+        input.value = '';
       }
 
       button.addEventListener('click', submitComment);
@@ -300,9 +195,7 @@ javascript:(function() {
   }
 
   // ポップアウトウィンドウにコピー関数を定義
-  popout.copyToClipboard = function(text) {
-    popout.navigator.clipboard.writeText(text);
-  };
+  popout.copyToClipboard = t => popout.navigator.clipboard.writeText(t);
 
    // コンテキストメニューを表示する関数
   let currentContextMenu = null;
@@ -462,14 +355,10 @@ javascript:(function() {
 
   // スクロールイベントでボタン表示/非表示を切り替え
   popoutContainer.addEventListener('scroll', () => {
-    // ユーザーが上にスクロールしたら自動スクロールを無効化
     const { scrollTop, scrollHeight, clientHeight } = popoutContainer;
-    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-    
-    if (distanceFromBottom > SCROLL_THRESHOLD) {
+    if (scrollHeight - scrollTop - clientHeight > SCROLL_THRESHOLD) {
       autoScrollEnabled = false;
     }
-    
     updateScrollButton();
   }, { passive: true });
 
