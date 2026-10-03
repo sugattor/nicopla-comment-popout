@@ -1,1 +1,9 @@
+# dev tooling (not part of the bookmarklet)
 minify.js
+package.json
+package-lock.json
+node_modules/
+
+# Playwright MCP / test artifacts
+.playwright-mcp/
+*.png
